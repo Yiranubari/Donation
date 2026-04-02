@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Support with Lightning</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --card: #131a2b;
+        --text: #ecf2ff;
+        --muted: #9ab0d0;
+        --accent: #8b5cf6;
+        --accent-2: #06b6d4;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+          circle at 20% 20%,
+          #1b2440 0%,
+          var(--bg) 40%,
+          #05070f 100%
+        );
+        padding: 24px;
+      }
+
+      .card {
+        width: min(520px, 100%);
+        background: linear-gradient(
+          170deg,
+          rgba(255, 255, 255, 0.06),
+          rgba(255, 255, 255, 0.02)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 28px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.7rem;
+      }
+
+      p {
+        margin: 0 0 20px;
+        color: var(--muted);
+      }
+
+      .donate-btn {
+        width: 100%;
+        border: 0;
+        border-radius: 14px;
+        padding: 14px 18px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: white;
+        cursor: pointer;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 8px 24px rgba(107, 114, 255, 0.45);
+        transition:
+          transform 0.12s ease,
+          filter 0.12s ease;
+      }
+
+      .donate-btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.06);
+      }
+
+      .field {
+        margin-top: 16px;
+      }
+
+      .label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .value {
+        display: flex;
+        gap: 8px;
+      }
+
+      input {
+        flex: 1;
+        background: #0d1529;
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+      }
+
+      .copy-btn {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: transparent;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      .hint {
+        margin-top: 12px;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .ok {
+        color: #67e8f9;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>⚡ Support my work</h1>
+      <p>Send a Lightning tip instantly. Thank you for your support!</p>
+
+      <button id="donateButton" class="donate-btn" type="button">
+        Donate with Lightning
+      </button>
+
+      <div class="field">
+        <div class="label">Lightning Address</div>
+        <div class="value">
+          <input id="lightningAddress" readonly />
+          <button id="copyButton" class="copy-btn" type="button">Copy</button>
+        </div>
+      </div>
+
+      <div id="status" class="hint">
+        Tip: replace the address in this file with your own.
+      </div>
+    </main>
+
+    <script>
+      // Replace this with your own Lightning Address (for example: yourname@getalby.com)
+      const lightningAddress = "yourname@getalby.com";
+
+      const donateButton = document.getElementById("donateButton");
+      const copyButton = document.getElementById("copyButton");
+      const lightningAddressInput = document.getElementById("lightningAddress");
+      const status = document.getElementById("status");
+
+      lightningAddressInput.value = lightningAddress;
+
+      donateButton.addEventListener("click", () => {
+        window.location.href = `lightning:${lightningAddress}`;
+      });
+
+      copyButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(lightningAddress);
+          status.textContent = "Copied Lightning address.";
+          status.classList.add("ok");
+        } catch {
+          status.textContent =
+            "Could not copy automatically. Please copy manually.";
+          status.classList.remove("ok");
+        }
+      });
+    </script>
+  </body>
+</html>
