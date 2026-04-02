@@ -108,16 +108,26 @@ function clearInvoiceQr() {
 
 function renderInvoiceQr(container, paymentRequest, size = 220) {
   container.innerHTML = "";
-  if (!window.QRCode) throw new Error("QR library not loaded.");
+  const qrText = `lightning:${paymentRequest}`;
 
-  new window.QRCode(container, {
-    text: `lightning:${paymentRequest}`,
-    width: size,
-    height: size,
-    colorDark: "#111111",
-    colorLight: "#ffffff",
-    correctLevel: window.QRCode.CorrectLevel.M,
-  });
+  if (window.QRCode) {
+    new window.QRCode(container, {
+      text: qrText,
+      width: size,
+      height: size,
+      colorDark: "#111111",
+      colorLight: "#ffffff",
+      correctLevel: window.QRCode.CorrectLevel.M,
+    });
+    return;
+  }
+
+  const img = document.createElement("img");
+  img.alt = "Lightning invoice QR";
+  img.width = size;
+  img.height = size;
+  img.src = `https://quickchart.io/qr?size=${size}&text=${encodeURIComponent(qrText)}`;
+  container.appendChild(img);
 }
 
 function closeQrModal() {
@@ -131,8 +141,14 @@ function openQrModal() {
     setStatusMessage("Generate an invoice first.", "error");
     return;
   }
-  qrModal.classList.remove("hidden");
-  renderInvoiceQr(invoiceQrLarge, invoice, 300);
+
+  try {
+    renderInvoiceQr(invoiceQrLarge, invoice, 300);
+    qrModal.classList.remove("hidden");
+  } catch (error) {
+    qrModal.classList.add("hidden");
+    setStatusMessage(`QR render failed: ${error.message}`, "error");
+  }
 }
 
 function stopPaymentStatusPolling() {
