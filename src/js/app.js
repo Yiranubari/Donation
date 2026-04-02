@@ -149,10 +149,6 @@ async function getInvoicePaymentStatus(paymentRequest) {
     query InvoiceStatus($input: LnInvoicePaymentStatusByPaymentRequestInput!) {
       lnInvoicePaymentStatusByPaymentRequest(input: $input) {
         status
-        errors {
-          code
-          message
-        }
       }
     }
   `;
@@ -161,9 +157,6 @@ async function getInvoicePaymentStatus(paymentRequest) {
   const result = data?.lnInvoicePaymentStatusByPaymentRequest;
 
   if (!result) throw new Error("No payment status response from Blink API.");
-  if (Array.isArray(result.errors) && result.errors.length > 0) {
-    throw new Error(result.errors.map((e) => e.message).join("; "));
-  }
 
   return result.status;
 }
