@@ -3,7 +3,9 @@ const POLL_INTERVAL_MS = 3000;
 
 const donateButton = document.getElementById("donateButton");
 const copyButton = document.getElementById("copyButton");
+const updateUsernameButton = document.getElementById("updateUsernameButton");
 const blinkUsernameInput = document.getElementById("blinkUsername");
+const recipientUsername = document.getElementById("recipientUsername");
 const amountSatsInput = document.getElementById("amountSats");
 const paymentRequestInput = document.getElementById("paymentRequest");
 const status = document.getElementById("status");
@@ -11,9 +13,10 @@ const invoiceQr = document.getElementById("invoiceQr");
 const paymentState = document.getElementById("paymentState");
 const donationCard = document.getElementById("donationCard");
 
-let qrCode = null;
 let pollTimer = null;
 let activePaymentRequest = null;
+let currentUsername = "";
+let lastKnownInvoiceStatus = "";
 
 async function blinkGraphQL(query, variables) {
   const response = await fetch(BLINK_GRAPHQL_URL, {
@@ -22,17 +25,78 @@ async function blinkGraphQL(query, variables) {
     body: JSON.stringify({ query, variables }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Blink API HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Blink API HTTP ${response.status}`);
 
   const payload = await response.json();
-
   if (Array.isArray(payload.errors) && payload.errors.length > 0) {
     throw new Error(payload.errors.map((e) => e.message).join("; "));
   }
 
   return payload.data;
+}
+
+function normalizeBlinkUsername(value) {
+  const raw = value.trim();
+  if (!raw) return "";
+  return raw.includes("@") ? raw.split("@")[0] : raw;
+}
+
+function setStatusMessage(message, kind = "neutral") {
+  status.textContent = message;
+  status.classList.remove("ok", "error");
+  if (kind === "ok") status.classList.add("ok");
+  if (kind === "error") status.classList.add("error");
+}
+
+function setPaymentState(state) {
+  paymentState.textContent = `Status: ${state}`;
+}
+
+function updateDonateButtonText() {
+  const amount = Number.parseInt(amountSatsInput.value, 10);
+  donateButton.textContent =
+    Number.isInteger(amount) && amount > 0 ? `Donate ${amount} sats` : "Donate";
+}
+
+function clearVisualStatus() {
+  donationCard.classList.remove("paid", "expired");
+  invoiceQr.classList.remove("paid", "expired");
+}
+
+function clearInvoiceQr() {
+  invoiceQr.innerHTML =
+    '<p class="qr-placeholder">QR appears after invoice generation</p>';
+  clearVisualStatus();
+}
+
+function renderInvoiceQr(paymentRequest) {
+  invoiceQr.innerHTML = "";
+  if (!window.QRCode) throw new Error("QR library not loaded.");
+
+  new window.QRCode(invoiceQr, {
+    text: `lightning:${paymentRequest}`,
+    width: 220,
+    height: 220,
+    colorDark: "#111111",
+    colorLight: "#ffffff",
+    correctLevel: window.QRCode.CorrectLevel.M,
+  });
+}
+
+function stopPaymentStatusPolling() {
+  if (pollTimer) {
+    window.clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function scheduleNextPoll() {
+  if (!activePaymentRequest) return;
+  pollTimer = window.setTimeout(() => {
+    pollPaymentStatus().catch(() => {
+      // handled in pollPaymentStatus
+    });
+  }, POLL_INTERVAL_MS);
 }
 
 async function getRecipientWalletId(username) {
@@ -72,64 +136,12 @@ async function createInvoiceOnBehalfOfRecipient(recipientWalletId, amount) {
   });
 
   const result = data?.lnInvoiceCreateOnBehalfOfRecipient;
-  if (!result) {
-    throw new Error("No invoice response from Blink API.");
-  }
-
+  if (!result) throw new Error("No invoice response from Blink API.");
   if (Array.isArray(result.errors) && result.errors.length > 0) {
     throw new Error(result.errors.map((e) => e.message).join("; "));
   }
 
   return result.invoice?.paymentRequest;
-}
-
-function normalizeBlinkUsername(value) {
-  const raw = value.trim();
-  if (!raw) return "";
-  return raw.includes("@") ? raw.split("@")[0] : raw;
-}
-
-function renderInvoiceQr(paymentRequest) {
-  invoiceQr.innerHTML = "";
-
-  if (!window.QRCode) {
-    throw new Error("QR library not loaded.");
-  }
-
-  qrCode = new window.QRCode(invoiceQr, {
-    text: `lightning:${paymentRequest}`,
-    width: 220,
-    height: 220,
-    colorDark: "#ecf2ff",
-    colorLight: "#0d1529",
-    correctLevel: window.QRCode.CorrectLevel.M,
-  });
-
-  return qrCode;
-}
-
-function clearInvoiceQr() {
-  invoiceQr.innerHTML =
-    '<p class="qr-placeholder">Generate an invoice to show QR</p>';
-  invoiceQr.classList.remove("paid", "expired");
-}
-
-function setPaymentState(state) {
-  paymentState.textContent = `Status: ${state}`;
-}
-
-function stopPaymentStatusPolling() {
-  if (pollTimer) {
-    window.clearInterval(pollTimer);
-    pollTimer = null;
-  }
-}
-
-function setStatusMessage(message, kind = "neutral") {
-  status.textContent = message;
-  status.classList.remove("ok", "error");
-  if (kind === "ok") status.classList.add("ok");
-  if (kind === "error") status.classList.add("error");
 }
 
 async function getInvoicePaymentStatus(paymentRequest) {
@@ -147,10 +159,8 @@ async function getInvoicePaymentStatus(paymentRequest) {
 
   const data = await blinkGraphQL(query, { input: { paymentRequest } });
   const result = data?.lnInvoicePaymentStatusByPaymentRequest;
-  if (!result) {
-    throw new Error("No payment status response from Blink API.");
-  }
 
+  if (!result) throw new Error("No payment status response from Blink API.");
   if (Array.isArray(result.errors) && result.errors.length > 0) {
     throw new Error(result.errors.map((e) => e.message).join("; "));
   }
@@ -158,113 +168,121 @@ async function getInvoicePaymentStatus(paymentRequest) {
   return result.status;
 }
 
-async function checkAndHandlePaymentStatus(paymentRequest) {
-  const currentStatus = await getInvoicePaymentStatus(paymentRequest);
-  if (!currentStatus) return;
+async function pollPaymentStatus() {
+  if (!activePaymentRequest) return;
 
-  setPaymentState(currentStatus);
+  try {
+    const currentStatus = await getInvoicePaymentStatus(activePaymentRequest);
+    if (!activePaymentRequest) return;
 
-  if (currentStatus === "PAID") {
-    stopPaymentStatusPolling();
-    invoiceQr.classList.remove("expired");
-    invoiceQr.classList.add("paid");
-    donationCard.classList.add("paid");
-    setStatusMessage("Payment received. Thank you!", "ok");
-    return;
-  }
-
-  if (currentStatus === "EXPIRED") {
-    stopPaymentStatusPolling();
-    invoiceQr.classList.remove("paid");
-    invoiceQr.classList.add("expired");
-    donationCard.classList.remove("paid");
-    setStatusMessage("Invoice expired. Generate a new invoice.", "error");
-    return;
-  }
-
-  invoiceQr.classList.remove("paid", "expired");
-  donationCard.classList.remove("paid");
-  setStatusMessage("Waiting for payment...", "neutral");
-}
-
-function startPaymentStatusPolling(paymentRequest) {
-  stopPaymentStatusPolling();
-  activePaymentRequest = paymentRequest;
-  setPaymentState("PENDING");
-
-  checkAndHandlePaymentStatus(paymentRequest).catch((error) => {
-    setStatusMessage(`Status check failed: ${error.message}`, "error");
-  });
-
-  pollTimer = window.setInterval(async () => {
-    try {
-      if (!activePaymentRequest || activePaymentRequest !== paymentRequest) {
-        stopPaymentStatusPolling();
-        return;
-      }
-      await checkAndHandlePaymentStatus(paymentRequest);
-    } catch (error) {
-      stopPaymentStatusPolling();
-      setStatusMessage(`Status check failed: ${error.message}`, "error");
+    if (!currentStatus) {
+      scheduleNextPoll();
+      return;
     }
-  }, POLL_INTERVAL_MS);
+
+    if (currentStatus !== lastKnownInvoiceStatus) {
+      lastKnownInvoiceStatus = currentStatus;
+      setPaymentState(currentStatus);
+    }
+
+    if (currentStatus === "PAID") {
+      stopPaymentStatusPolling();
+      donationCard.classList.remove("expired");
+      donationCard.classList.add("paid");
+      invoiceQr.classList.remove("expired");
+      invoiceQr.classList.add("paid");
+      setStatusMessage("Payment received. Thank you!", "ok");
+      activePaymentRequest = null;
+      return;
+    }
+
+    if (currentStatus === "EXPIRED") {
+      stopPaymentStatusPolling();
+      donationCard.classList.remove("paid");
+      donationCard.classList.add("expired");
+      invoiceQr.classList.remove("paid");
+      invoiceQr.classList.add("expired");
+      setStatusMessage("Invoice expired. Generate a new one.", "error");
+      activePaymentRequest = null;
+      return;
+    }
+
+    clearVisualStatus();
+    setStatusMessage("Waiting for payment...", "neutral");
+    scheduleNextPoll();
+  } catch (error) {
+    setStatusMessage(
+      `Status check failed. Retrying... (${error.message})`,
+      "error",
+    );
+    scheduleNextPoll();
+  }
 }
+
+updateUsernameButton.addEventListener("click", () => {
+  const username = normalizeBlinkUsername(blinkUsernameInput.value);
+  if (!username) {
+    setStatusMessage("Enter a valid Blink username.", "error");
+    return;
+  }
+
+  currentUsername = username;
+  recipientUsername.textContent = username;
+  setStatusMessage("Recipient updated.", "ok");
+});
+
+amountSatsInput.addEventListener("input", updateDonateButtonText);
 
 donateButton.addEventListener("click", async () => {
-  const username = normalizeBlinkUsername(blinkUsernameInput.value);
+  const username =
+    currentUsername || normalizeBlinkUsername(blinkUsernameInput.value);
   const amount = Number.parseInt(amountSatsInput.value, 10);
 
   if (!username) {
-    status.textContent = "Enter a Blink username.";
-    status.classList.remove("ok");
+    setStatusMessage("Set recipient username first.", "error");
     return;
   }
 
   if (!Number.isInteger(amount) || amount <= 0) {
-    status.textContent = "Enter a valid amount in sats.";
-    status.classList.remove("ok");
+    setStatusMessage("Enter a valid sats amount.", "error");
     return;
   }
 
+  currentUsername = username;
+  recipientUsername.textContent = username;
+
   donateButton.disabled = true;
-  donateButton.textContent = "Generating...";
+  donateButton.textContent = "Creating invoice...";
   stopPaymentStatusPolling();
   activePaymentRequest = null;
+  lastKnownInvoiceStatus = "";
   paymentRequestInput.value = "";
   clearInvoiceQr();
-  donationCard.classList.remove("paid");
-  setPaymentState("—");
+  setPaymentState("PENDING");
   setStatusMessage("Getting recipient wallet...");
 
   try {
     const recipientWalletId = await getRecipientWalletId(username);
-    if (!recipientWalletId) {
-      throw new Error("Recipient wallet not found.");
-    }
+    if (!recipientWalletId) throw new Error("Recipient wallet not found.");
 
     setStatusMessage("Creating invoice...");
     const paymentRequest = await createInvoiceOnBehalfOfRecipient(
       recipientWalletId,
       amount,
     );
-
-    if (!paymentRequest) {
-      throw new Error("Invoice was created without paymentRequest.");
-    }
+    if (!paymentRequest) throw new Error("Invoice missing paymentRequest.");
 
     paymentRequestInput.value = paymentRequest;
     renderInvoiceQr(paymentRequest);
-    setStatusMessage(
-      "Invoice generated. Polling payment status every 3 seconds.",
-    );
-    startPaymentStatusPolling(paymentRequest);
+    activePaymentRequest = paymentRequest;
+    setStatusMessage("Invoice created. Checking payment every 3 seconds.");
+    await pollPaymentStatus();
   } catch (error) {
-    setStatusMessage(`Invoice generation failed: ${error.message}`, "error");
     setPaymentState("—");
-    clearInvoiceQr();
+    setStatusMessage(`Invoice generation failed: ${error.message}`, "error");
   } finally {
     donateButton.disabled = false;
-    donateButton.textContent = "Generate Lightning Invoice";
+    updateDonateButtonText();
   }
 });
 
@@ -277,13 +295,12 @@ copyButton.addEventListener("click", async () => {
 
   try {
     await navigator.clipboard.writeText(invoice);
-    setStatusMessage("Copied payment request.", "ok");
+    setStatusMessage("Invoice copied.", "ok");
   } catch {
-    setStatusMessage(
-      "Could not copy automatically. Please copy manually.",
-      "error",
-    );
+    setStatusMessage("Copy failed. Copy manually.", "error");
   }
 });
 
 clearInvoiceQr();
+setPaymentState("—");
+updateDonateButtonText();
