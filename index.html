@@ -8,7 +8,10 @@
   </head>
   <body>
     <div class="page">
-      <h1>Lightning Donation</h1>
+      <h1 class="title-with-logo">
+        <img class="title-logo" src="assets/logos/bitcoin.svg" alt="Bitcoin" />
+        Lightning Donation
+      </h1>
 
       <section class="username-panel">
         <p class="panel-title">Enter a Blink username to donate to:</p>
@@ -17,21 +20,30 @@
           <button id="updateUsernameButton" class="update-btn" type="button">
             Update
           </button>
+          <button id="shareLinkButton" class="secondary-btn" type="button">
+            Share
+          </button>
         </div>
       </section>
 
       <main id="donationCard" class="donation-card">
         <div class="card-head">
           <div class="blink-brand">
-            <span class="blink-badge">₿</span>
-            <span class="blink-text">blink</span>
+            <img class="blink-logo" src="assets/logos/blink.svg" alt="Blink" />
           </div>
           <span id="recipientUsername" class="recipient-username">—</span>
         </div>
 
         <div class="amount-row">
           <input id="amountSats" type="number" min="1" step="1" value="21" />
-          <span class="sats-tag">sats</span>
+          <span class="sats-tag">
+            <img
+              class="sats-logo"
+              src="assets/logos/bitcoin.svg"
+              alt="Bitcoin"
+            />
+            sats
+          </span>
         </div>
 
         <button id="donateButton" class="donate-btn" type="button">
@@ -39,6 +51,14 @@
         </button>
 
         <div id="paymentState" class="payment-state">Status: —</div>
+        <div id="invoiceCountdown" class="payment-state">Expires in: —</div>
+        <button
+          id="regenerateButton"
+          class="secondary-btn hidden"
+          type="button"
+        >
+          Regenerate Invoice
+        </button>
       </main>
 
       <section class="invoice-panel">
@@ -51,10 +71,37 @@
           <button id="copyButton" class="copy-btn" type="button">Copy</button>
         </div>
         <div id="invoiceQr"></div>
+        <div class="qr-actions">
+          <button id="viewQrButton" class="secondary-btn" type="button">
+            Enlarge QR
+          </button>
+          <button id="downloadQrButton" class="secondary-btn" type="button">
+            Download QR
+          </button>
+        </div>
+        <div class="details">
+          <p id="paymentHash" class="hint">Payment hash: —</p>
+          <p id="paidAt" class="hint">Paid at: —</p>
+        </div>
+      </section>
+
+      <section class="invoice-panel">
+        <p class="panel-title">Recent paid donations</p>
+        <ul id="historyList" class="history-list"></ul>
       </section>
 
       <p id="status" class="hint">No-auth flow active. Ready.</p>
     </div>
+
+    <div id="qrModal" class="qr-modal hidden">
+      <div class="qr-modal-content">
+        <button id="closeQrModalButton" class="close-btn" type="button">
+          ×
+        </button>
+        <div id="invoiceQrLarge"></div>
+      </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="src/js/app.js"></script>
   </body>
