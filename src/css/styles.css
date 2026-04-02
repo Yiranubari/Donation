@@ -56,7 +56,7 @@ h1 {
 
 .username-panel {
   text-align: left;
-  width: min(340px, 100%);
+  width: min(420px, 100%);
   margin: 0 auto 22px;
   padding: 18px;
   background: var(--panel);
@@ -71,16 +71,16 @@ h1 {
 }
 
 .panel-row {
-  flex-wrap: wrap;
   display: flex;
   gap: 8px;
-  justify-content: center;
+  align-items: stretch;
 }
 
 .panel-row input {
-  width: min(310px, 100%);
+  flex: 1;
+  min-width: 0;
   border-radius: 4px;
-  border-right: 1px solid #ddd;
+  border: 1px solid #ddd;
 }
 
 .update-btn {
@@ -125,7 +125,7 @@ h1 {
 }
 
 .donation-card {
-  width: min(340px, 100%);
+  width: min(420px, 100%);
   margin: 0 auto;
   background: var(--white);
   border: 1px solid #ddd;
@@ -235,7 +235,7 @@ input {
 
 .invoice-panel {
   text-align: left;
-  width: min(340px, 100%);
+  width: min(420px, 100%);
   margin: 16px auto 8px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -245,16 +245,22 @@ input {
 }
 
 .invoice-row {
-  flex-wrap: wrap;
   display: flex;
   gap: 8px;
+  align-items: stretch;
+}
+
+.invoice-row input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 4px;
 }
 
 .qr-actions {
-  flex-wrap: wrap;
   margin-top: 10px;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   justify-content: center;
 }
 
