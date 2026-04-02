@@ -363,6 +363,10 @@ input {
   z-index: 20;
 }
 
+.qr-modal.hidden {
+  display: none;
+}
+
 .qr-modal-content {
   position: relative;
   background: #fff;
