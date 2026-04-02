@@ -1,15 +1,27 @@
-# Lightning Donation Page
+# Lightning Donation Page (Blink API)
 
-A simple static HTML page with a **Lightning donation button**.
+Static donation page using Blink no-auth invoice flow plus QR rendering.
 
-## Customize
+## Project structure
 
-1. Open [index.html](index.html).
-2. Replace the `lightningAddress` value with your own Lightning Address.
+- [index.html](index.html) — page markup
+- [src/css/styles.css](src/css/styles.css) — styles
+- [src/js/app.js](src/js/app.js) — Blink GraphQL + UI logic
+
+## Blink no-key flow
+
+1. `accountDefaultWallet(username, walletCurrency: BTC)`
+2. `lnInvoiceCreateOnBehalfOfRecipient(input: { recipientWalletId, amount })`
+
+## QR code library
+
+Loaded from cdnjs (qrcodejs):
+
+- `https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js`
 
 ## Run locally
 
-Just open [index.html](index.html) in a browser.
+Open [index.html](index.html) in a browser.
 
 ## Publish with GitHub Pages
 
